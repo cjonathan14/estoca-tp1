@@ -17,7 +17,7 @@ for i=1:length(n)
         snr=10^(SNR(j)/10);
         
         aux=0;
-        for k=0:i-1
+        for k=0:n(i)-1
             aux=aux+(1+snr^-1)^k;
         end
 
@@ -61,5 +61,92 @@ xlim([-5 25]); %Hardcodeado
 xlabel('SNR [dB]')
 ylabel('P_{e} (SNR) ');
 legend('show', 'Location', 'NorthEast');
-%%
 
+
+
+%% Ejercicio 4, simulación Monte Carlo.
+% Comente varias cosas para que lo entiendan ustedes, despues habria que
+% revisarlo.
+% Fijamos A = 10, h = 0.1 arbitrariamente.
+
+n = 9; % Numero de repetidores
+A = 10;
+h = 0.1;
+res_snr = 1; % Resolucion de la SNR
+M = 1e4; % Numero de experimentos por SNR. 10000 son pocos para un grafico hasta 10^-6, pero sino tarda mucho
+
+% Digital
+
+SNR = 5:res_snr:25;
+pe_d_sim = zeros (1,length(SNR)); % Inicializacion
+for k = 1:length(SNR)
+    var = h^2 * A^2 / 10^(SNR(k)/10);
+    fallos = 0;
+    for i = 1:M
+        if (rand(1) > 0.5)
+            X = A;
+        else X = -A;
+        end
+        X_dot = X;
+        for j = 1:n
+            W = randn(1)*sqrt(var); %Normal varianza var.
+            if (h*X_dot + W > 0)
+                X_dot = A;
+            else X_dot = -A;
+            end
+        end
+        if (X ~= X_dot)
+            fallos = fallos + 1;
+        end
+    end
+    pe_d_sim(k) = fallos / M; % Promedio. Converge a pe
+end
+
+% Analogico
+
+pe_a_sim = zeros (1,length(SNR));
+for k = 1:length(SNR)
+    G = 1/h * sqrt (10^(SNR(k)/10) / (10^(SNR(k)/10)+1));
+    var = h^2 * A^2 / 10^(SNR(k)/10);
+    fallos = 0;
+    for i = 1:M
+        if (rand(1) > 0.5)
+            X = A;
+        else X = -A;
+        end
+        X_dot = X;
+        for j = 1:n-1
+            W = randn(1)*sqrt(var); %Normal varianza var.
+            X_dot = (h*X_dot + W) * G;
+        end
+        W = randn(1)*sqrt(var);
+        if (X_dot*h + W > 0)
+            X_dot = A;
+        else X_dot = -A;
+        end
+        if (X ~= X_dot)
+            fallos = fallos + 1;
+        end
+    end
+    pe_a_sim(k) = fallos / M; % Promedio. Converge a pe
+end
+
+%Grafico de comparacion
+
+figure;
+
+semilogy (SNR, pe_d_sim,'DisplayName','P_{e,sim}^d');
+hold on;
+grid on;
+grid minor;
+semilogy (SNR, pe_a_sim,'DisplayName','P_{e,sim}^a');
+
+SNR=(-5:1:30);
+semilogy (SNR, p_ed(3,:),'DisplayName','P_{e,teo}^d');
+semilogy (SNR, p_ea(3,:),'DisplayName','P_{e,teo}^a');
+
+ylim([1e-6 1e0]);
+xlim([5 25]);
+xlabel('SNR [dB]')
+ylabel('P_{e} (SNR) ');
+legend('show', 'Location', 'NorthEast');
